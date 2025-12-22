@@ -10,10 +10,10 @@ public interface BootcampRepository extends ReactiveCrudRepository<BootcampEntit
 
     Mono<BootcampEntity> findByNombre(String nombre);
 
-//    @Query("""
-//            SELECT * FROM capacidades
-//            ORDER BY nombre
-//            LIMIT :size OFFSET :offset
-//            """)
-//    Flux<CapacidadEntity> findAllPaged(int size, long offset);
+    @Query("""
+            SELECT * FROM bootcamps
+            ORDER BY nombre
+            LIMIT :size OFFSET :offset
+            """)
+    Flux<BootcampEntity> findAllPaged(int size, long offset);
 }

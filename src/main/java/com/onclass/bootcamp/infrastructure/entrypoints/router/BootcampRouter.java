@@ -16,6 +16,7 @@ public class BootcampRouter {
     @Bean
     public RouterFunction<ServerResponse> bootcampRoutes(
             BootcampHandler handler) {
-        return route(POST("/bootcamps"), handler::registrar);
+        return route(POST("/bootcamps"), handler::registrar)
+                .andRoute(GET("/bootcamps"), handler::listar);
     }
 }
