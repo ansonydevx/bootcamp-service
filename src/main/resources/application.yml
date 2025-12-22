@@ -1,0 +1,21 @@
+server:
+  port: 8083
+
+services:
+  capacidades:
+    base-url: http://localhost:8082
+
+spring:
+  application:
+    name: bootcamp-service
+  r2dbc:
+    url: r2dbc:mysql://localhost:3306/bootcamps_db
+    username: root
+    password: root
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
