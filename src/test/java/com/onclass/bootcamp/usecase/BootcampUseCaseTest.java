@@ -6,6 +6,8 @@ import com.onclass.bootcamp.domain.model.Bootcamp;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
 import com.onclass.bootcamp.domain.spi.CapacidadQueryPort;
 import com.onclass.bootcamp.domain.usecase.BootcampUseCase;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadListado;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.TecnologiaResumen;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -19,6 +21,7 @@ import java.util.Map;
 import java.util.stream.LongStream;
 
 import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class BootcampUseCaseTest {
 
@@ -35,14 +38,18 @@ class BootcampUseCaseTest {
                 capacidadQueryPort);
     }
 
-    private Bootcamp generarBootcampConCapacidades(int cantidad) {
+    private Bootcamp generarBootcampConCapacidades(
+            Long id,
+            String nombre,
+            int cantidadCapacidades
+    ) {
         return new Bootcamp(
-                null,
-                "Bootcamp Java",
-                "Una descripcion",
+                id,
+                nombre,
+                "Descripcion " + nombre,
                 LocalDate.now(),
                 8,
-                LongStream.rangeClosed(1, cantidad)
+                LongStream.rangeClosed(1, cantidadCapacidades)
                         .boxed()
                         .toList()
         );
@@ -50,7 +57,11 @@ class BootcampUseCaseTest {
 
     @Test
     void deberiaFallarSiNoTieneCapacidades() {
-        Bootcamp bootcamp = generarBootcampConCapacidades(0);
+        Bootcamp bootcamp = generarBootcampConCapacidades(
+                1L,
+                "Bootcamp Java",
+                0
+        );
 
         StepVerifier.create(useCase.registrar(bootcamp))
                 .expectErrorMatches(error ->
@@ -62,7 +73,11 @@ class BootcampUseCaseTest {
 
     @Test
     void deberiaFallarSiTieneMasDe4Capacidades() {
-        Bootcamp bootcamp = generarBootcampConCapacidades(5);
+        Bootcamp bootcamp = generarBootcampConCapacidades(
+                1L,
+                "Bootcamp Java",
+                5
+        );
 
         StepVerifier.create(useCase.registrar(bootcamp))
                 .expectErrorMatches(error ->
@@ -74,7 +89,11 @@ class BootcampUseCaseTest {
 
     @Test
     void deberiaRegistrarBootcampCorrectamente() {
-        Bootcamp bootcamp = generarBootcampConCapacidades(3);
+        Bootcamp bootcamp = generarBootcampConCapacidades(
+                1L,
+                "Bootcamp Java",
+                3
+        );
 
         when(persistencePort.existsByNombre(bootcamp.nombre()))
                 .thenReturn(Mono.just(false));
@@ -95,6 +114,73 @@ class BootcampUseCaseTest {
 
         StepVerifier.create(useCase.registrar(bootcamp))
                 .expectNextMatches(b -> b.id() != null)
+                .verifyComplete();
+    }
+
+    @Test
+    void deberiaListarBootcampsPaginados() {
+        Bootcamp b1 = generarBootcampConCapacidades(1L, "Bootcamp A", 1);
+        Bootcamp b2 = generarBootcampConCapacidades(2L, "Bootcamp b", 1);
+
+        when(persistencePort.findAll(0, 2))
+                .thenReturn(Flux.just(b1, b2));
+
+        when(capacidadQueryPort.obtenerCapacidadesPorIds(any()))
+                .thenReturn(Mono.just(List.of()));
+
+        StepVerifier.create(useCase.listar(0, 2, "nombre", "asc"))
+                .expectNextCount(2)
+                .verifyComplete();
+    }
+
+    @Test
+    void deberiaOrdenarPorNombreAsc() {
+        Bootcamp b1 = generarBootcampConCapacidades(1L, "Alfa", 1);
+        Bootcamp b2 = generarBootcampConCapacidades(2L, "Beta", 1);
+
+        when(persistencePort.findAll(0, 10))
+                .thenReturn(Flux.just(b1, b2));
+
+        when(capacidadQueryPort.obtenerCapacidadesPorIds(any()))
+                .thenReturn(Mono.just(List.of()));
+
+        StepVerifier.create(useCase.listar(0, 10, "nombre", "asc"))
+                .assertNext(b -> assertEquals("Alfa", b.nombre()))
+                .assertNext(b -> assertEquals("Beta", b.nombre()))
+                .verifyComplete();
+    }
+
+    @Test
+    void deberiaOrdenarPorNombreDesc() {
+        Bootcamp b1 = generarBootcampConCapacidades(1L, "Alfa", 1);
+        Bootcamp b2 = generarBootcampConCapacidades(2L, "Beta", 1);
+
+        when(persistencePort.findAll(0, 10))
+                .thenReturn(Flux.just(b1, b2));
+
+        when(capacidadQueryPort.obtenerCapacidadesPorIds(any()))
+                .thenReturn(Mono.just(List.of()));
+
+        StepVerifier.create(useCase.listar(0, 10, "nombre", "desc"))
+                .assertNext(b -> assertEquals("Beta", b.nombre()))
+                .assertNext(b -> assertEquals("Alfa", b.nombre()))
+                .verifyComplete();
+    }
+
+    @Test
+    void deberiaOrdenarPorCantidadDeCapacidadesDesc() {
+        Bootcamp b1 = generarBootcampConCapacidades(1L, "Alfa", 1);
+        Bootcamp b2 = generarBootcampConCapacidades(2L, "Beta", 3);
+
+        when(persistencePort.findAll(0, 10))
+                .thenReturn(Flux.just(b1, b2));
+
+        when(capacidadQueryPort.obtenerCapacidadesPorIds(any()))
+                .thenReturn(Mono.just(List.of()));
+
+        StepVerifier.create(useCase.listar(0, 10, "cantidad", "desc"))
+                .assertNext(b -> assertEquals(3, b.capacidades().size()))
+                .assertNext(b -> assertEquals(1, b.capacidades().size()))
                 .verifyComplete();
     }
 }

@@ -7,11 +7,14 @@ import com.onclass.bootcamp.domain.model.Bootcamp;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
 import com.onclass.bootcamp.domain.spi.CapacidadQueryPort;
 
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListado;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadListado;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class BootcampUseCase implements BootcampServicePort {
 
@@ -45,6 +48,57 @@ public class BootcampUseCase implements BootcampServicePort {
                                 })
                 ));
     }
+
+    @Override
+    public Flux<BootcampListado> listar(int page, int size, String sortBy, String direction) {
+        return persistencePort.findAll(page, size)
+                .collectList()
+                .flatMapMany(bootcamps -> {
+                    if ("cantidad".equalsIgnoreCase(sortBy)) {
+                        bootcamps.sort((b1, b2) -> {
+                            int compare = Integer.compare(
+                                    b1.capacidadIds().size(),
+                                    b2.capacidadIds().size()
+                            );
+                            return direction.equalsIgnoreCase("desc")
+                                    ? -compare
+                                    : compare;
+                        });
+                    }
+
+                    if ("nombre".equalsIgnoreCase(sortBy)
+                            && direction.equalsIgnoreCase("desc")) {
+                        bootcamps.sort(
+                                (b1, b2) -> b2.nombre().compareToIgnoreCase(b1.nombre())
+                        );
+                    }
+
+                    List<Long> capacidadIds = bootcamps.stream()
+                            .flatMap(b -> b.capacidadIds().stream())
+                            .distinct()
+                            .toList();
+
+                    return capacidadQueryPort.obtenerCapacidadesPorIds(capacidadIds)
+                            .flatMapMany(capacidades -> {
+                                var capacidadMap = capacidades.stream()
+                                        .collect(Collectors.toMap(
+                                                CapacidadListado::id,
+                                                c -> c
+                                        ));
+
+                                return Flux.fromIterable(bootcamps)
+                                        .map(bootcamp ->
+                                                new BootcampListado(
+                                                        bootcamp.id(),
+                                                        bootcamp.nombre(),
+                                                        bootcamp.capacidadIds().stream()
+                                                                .map(capId -> capacidadMap.get(capId))
+                                                                .toList()
+                                                ));
+                            });
+                });
+    }
+
 
     private Mono<Void> validar(Bootcamp b) {
         if (b.capacidadIds() == null || b.capacidadIds().isEmpty())

@@ -39,4 +39,25 @@ public class BootcampPersistenceAdapter implements BootcampPersistencePort {
                                                 saved.getDuracion(),
                                                 bootcamp.capacidadIds()))));
     }
+
+    @Override
+    public Flux<Bootcamp> findAll(int page, int size) {
+        long offset = (long) page * size;
+
+        return bootcampRepository.findAllPaged(size, offset)
+                .flatMap(entity ->
+                        bootcampCapacidadRepository
+                                .findByBootcampId(entity.getId())
+                                .map(BootcampCapacidadEntity::getCapacidadId)
+                                .collectList()
+                                .map(capacidadIds ->
+                                        new Bootcamp(
+                                                entity.getId(),
+                                                entity.getNombre(),
+                                                entity.getDescripcion(),
+                                                entity.getFechaLanzamiento(),
+                                                entity.getDuracion(),
+                                                capacidadIds
+                                        )));
+    }
 }
