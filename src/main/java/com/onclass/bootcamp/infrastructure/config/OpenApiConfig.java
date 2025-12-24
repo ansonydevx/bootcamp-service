@@ -9,11 +9,11 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
 
     @Bean
-    public OpenAPI tecnologiaApi() {
+    public OpenAPI bootcampApi() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Tecnologia API")
-                        .description("Gestionar tecnologias")
+                        .title("Bootcamp API")
+                        .description("Gestionar bootcamps")
                         .version("1.0.0"));
     }
 }
