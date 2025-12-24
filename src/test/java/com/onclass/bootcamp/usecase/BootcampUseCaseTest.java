@@ -7,7 +7,6 @@ import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
 import com.onclass.bootcamp.domain.spi.CapacidadQueryPort;
 import com.onclass.bootcamp.domain.usecase.BootcampUseCase;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadListado;
-import com.onclass.bootcamp.infrastructure.entrypoints.dto.TecnologiaResumen;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -17,7 +16,6 @@ import reactor.test.StepVerifier;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.LongStream;
 
 import static org.mockito.Mockito.*;
@@ -126,7 +124,7 @@ class BootcampUseCaseTest {
                 .thenReturn(Flux.just(b1, b2));
 
         when(capacidadQueryPort.obtenerCapacidadesPorIds(any()))
-                .thenReturn(Mono.just(List.of()));
+                .thenReturn(Flux.fromIterable(List.of()));
 
         StepVerifier.create(useCase.listar(0, 2, "nombre", "asc"))
                 .expectNextCount(2)
@@ -142,7 +140,7 @@ class BootcampUseCaseTest {
                 .thenReturn(Flux.just(b1, b2));
 
         when(capacidadQueryPort.obtenerCapacidadesPorIds(any()))
-                .thenReturn(Mono.just(List.of()));
+                .thenReturn(Flux.fromIterable(List.of()));
 
         StepVerifier.create(useCase.listar(0, 10, "nombre", "asc"))
                 .assertNext(b -> assertEquals("Alfa", b.nombre()))
@@ -159,7 +157,7 @@ class BootcampUseCaseTest {
                 .thenReturn(Flux.just(b1, b2));
 
         when(capacidadQueryPort.obtenerCapacidadesPorIds(any()))
-                .thenReturn(Mono.just(List.of()));
+                .thenReturn(Flux.fromIterable(List.of()));
 
         StepVerifier.create(useCase.listar(0, 10, "nombre", "desc"))
                 .assertNext(b -> assertEquals("Beta", b.nombre()))
@@ -176,7 +174,11 @@ class BootcampUseCaseTest {
                 .thenReturn(Flux.just(b1, b2));
 
         when(capacidadQueryPort.obtenerCapacidadesPorIds(any()))
-                .thenReturn(Mono.just(List.of()));
+                .thenReturn(Flux.just(
+                    new CapacidadListado(1L, "Cap 1", List.of()),
+                    new CapacidadListado(2L, "Cap 2", List.of()),
+                    new CapacidadListado(3L, "Cap 3", List.of())
+                ));
 
         StepVerifier.create(useCase.listar(0, 10, "cantidad", "desc"))
                 .assertNext(b -> assertEquals(3, b.capacidades().size()))

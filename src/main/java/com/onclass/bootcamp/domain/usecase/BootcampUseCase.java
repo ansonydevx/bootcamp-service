@@ -1,5 +1,6 @@
 package com.onclass.bootcamp.domain.usecase;
 
+import com.onclass.bootcamp.BootcampServiceApplication;
 import com.onclass.bootcamp.domain.api.BootcampServicePort;
 import com.onclass.bootcamp.domain.enums.TechnicalMessage;
 import com.onclass.bootcamp.domain.exceptions.BusinessException;
@@ -12,8 +13,7 @@ import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadListado;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class BootcampUseCase implements BootcampServicePort {
@@ -29,24 +29,10 @@ public class BootcampUseCase implements BootcampServicePort {
     @Override
     public Mono<Bootcamp> registrar(Bootcamp bootcamp) {
         return validar(bootcamp)
-                .then(Mono.defer(() ->
-                        persistencePort.existsByNombre(bootcamp.nombre())
-                                .flatMap(exists -> {
-                                    if (Boolean.TRUE.equals(exists)) {
-                                        return Mono.error(
-                                                new BusinessException(TechnicalMessage.CAPACIDAD_DUPLICADA));
-                                    }
-                                    return capacidadQueryPort.existenCapacidades(
-                                            bootcamp.capacidadIds());
-                                })
-                                .flatMap(existen -> {
-                                    if (Boolean.FALSE.equals(existen)) {
-                                        return Mono.error(new BusinessException(
-                                                TechnicalMessage.TECNOLOGIAS_NO_EXISTEN));
-                                    }
-                                    return persistencePort.save(bootcamp);
-                                })
-                ));
+                .flatMap(this::verificarDuplicidad)
+                .flatMap(this::verificarCapacidadesExisten)
+                .flatMap(persistencePort::save);
+
     }
 
     @Override
@@ -54,65 +40,81 @@ public class BootcampUseCase implements BootcampServicePort {
         return persistencePort.findAll(page, size)
                 .collectList()
                 .flatMapMany(bootcamps -> {
-                    if ("cantidad".equalsIgnoreCase(sortBy)) {
-                        bootcamps.sort((b1, b2) -> {
-                            int compare = Integer.compare(
-                                    b1.capacidadIds().size(),
-                                    b2.capacidadIds().size()
-                            );
-                            return direction.equalsIgnoreCase("desc")
-                                    ? -compare
-                                    : compare;
-                        });
-                    }
-
-                    if ("nombre".equalsIgnoreCase(sortBy)
-                            && direction.equalsIgnoreCase("desc")) {
-                        bootcamps.sort(
-                                (b1, b2) -> b2.nombre().compareToIgnoreCase(b1.nombre())
-                        );
-                    }
-
-                    List<Long> capacidadIds = bootcamps.stream()
-                            .flatMap(b -> b.capacidadIds().stream())
-                            .distinct()
-                            .toList();
-
-                    return capacidadQueryPort.obtenerCapacidadesPorIds(capacidadIds)
-                            .flatMapMany(capacidades -> {
-                                var capacidadMap = capacidades.stream()
-                                        .collect(Collectors.toMap(
-                                                CapacidadListado::id,
-                                                c -> c
-                                        ));
-
-                                return Flux.fromIterable(bootcamps)
-                                        .map(bootcamp ->
-                                                new BootcampListado(
-                                                        bootcamp.id(),
-                                                        bootcamp.nombre(),
-                                                        bootcamp.capacidadIds().stream()
-                                                                .map(capId -> capacidadMap.get(capId))
-                                                                .toList()
-                                                ));
-                            });
+                    ordenar(bootcamps, sortBy, direction);
+                    return mapearConCapacidades(bootcamps);
                 });
     }
 
 
-    private Mono<Void> validar(Bootcamp b) {
+    private Mono<Bootcamp> validar(Bootcamp b) {
         if (b.capacidadIds() == null || b.capacidadIds().isEmpty())
-            return Mono.error(new BusinessException(
-                    TechnicalMessage.MINIMO_TECNOLOGIAS));
+            return Mono.error(new BusinessException(TechnicalMessage.MINIMO_TECNOLOGIAS));
 
         if (b.capacidadIds().size() > 4)
-            return Mono.error(new BusinessException(
-                    TechnicalMessage.MAXIMO_TECNOLOGIAS));
+            return Mono.error(new BusinessException(TechnicalMessage.MAXIMO_TECNOLOGIAS));
 
         if (new HashSet<>(b.capacidadIds()).size() != b.capacidadIds().size())
-            return Mono.error(new BusinessException(
-                    TechnicalMessage.TECNOLOGIAS_REPETIDAS));
+            return Mono.error(new BusinessException(TechnicalMessage.TECNOLOGIAS_REPETIDAS));
 
-        return Mono.empty();
+        return Mono.just(b);
+    }
+
+    private Mono<Bootcamp> verificarDuplicidad(Bootcamp b) {
+        return persistencePort.existsByNombre(b.nombre())
+                .flatMap(exists -> Boolean.TRUE.equals(exists)
+                        ? Mono.error(new BusinessException(TechnicalMessage.CAPACIDAD_DUPLICADA))
+                        : Mono.just(b)
+                );
+    }
+
+    private Mono<Bootcamp> verificarCapacidadesExisten(Bootcamp b) {
+        return capacidadQueryPort.existenCapacidades(b.capacidadIds())
+                .flatMap(existen -> Boolean.TRUE.equals(existen)
+                        ? Mono.just(b)
+                        : Mono.error(new BusinessException(TechnicalMessage.TECNOLOGIAS_NO_EXISTEN))
+                );
+    }
+
+    private void ordenar(List<Bootcamp> bootcamps, String sortBy, String direction) {
+        Comparator<Bootcamp> comparator;
+
+        if ("cantidad".equalsIgnoreCase(sortBy)) {
+            comparator = Comparator.comparingInt(b -> b.capacidadIds().size());
+        } else {
+            comparator = Comparator.comparing(
+                    Bootcamp::nombre,
+                    String.CASE_INSENSITIVE_ORDER
+            );
+        }
+
+        if ("desc".equalsIgnoreCase(direction)) {
+            comparator = comparator.reversed();
+        }
+
+        bootcamps.sort(comparator);
+    }
+
+    private Flux<BootcampListado> mapearConCapacidades(List<Bootcamp> bootcamps) {
+        List<Long> capacidadIds = bootcamps.stream()
+                .flatMap(b -> b.capacidadIds().stream())
+                .distinct()
+                .toList();
+
+        return capacidadQueryPort.obtenerCapacidadesPorIds(capacidadIds)
+                .collectList()
+                .flatMapMany(capacidadesList -> {
+                    Map<Long, CapacidadListado> capacidadMap = capacidadesList.stream()
+                            .collect(Collectors.toMap(CapacidadListado::id, c -> c));
+
+                    return Flux.fromIterable(bootcamps)
+                            .map(bootcamp -> new BootcampListado(
+                                    bootcamp.id(),
+                                    bootcamp.nombre(),
+                                    bootcamp.capacidadIds().stream()
+                                            .map(capacidadMap::get)
+                                            .filter(Objects::nonNull)
+                                            .toList()
+                            ));
+                });
     }
 }
