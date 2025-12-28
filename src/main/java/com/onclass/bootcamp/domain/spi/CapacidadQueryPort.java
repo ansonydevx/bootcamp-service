@@ -11,4 +11,6 @@ import java.util.Map;
 public interface CapacidadQueryPort {
     Mono<Boolean> existenCapacidades(List<Long> capacidadIds);
     Flux<CapacidadListado> obtenerCapacidadesPorIds(List<Long> capacidadIds);
+
+    Mono<Void> eliminarCapacidades(List<Long> ids);
 }

@@ -26,6 +26,12 @@ public class RouterRest {
                     method = RequestMethod.GET,
                     beanClass = BootcampHandler.class,
                     beanMethod = "listar"
+            ),
+            @RouterOperation(
+                    path = "/bootcamps/{id}",
+                    method = RequestMethod.DELETE,
+                    beanClass = BootcampHandler.class,
+                    beanMethod = "eliminar"
             )
     })
 
@@ -33,6 +39,7 @@ public class RouterRest {
         return RouterFunctions.route()
                 .POST("/bootcamps", handler::registrar)
                 .GET("/bootcamps", handler::listar)
+                .DELETE("/bootcamps/{id}", handler::eliminar)
                 .build();
     }
 }

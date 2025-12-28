@@ -11,6 +11,7 @@ import com.onclass.bootcamp.infrastructure.adapters.persistence.repository.Bootc
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.reactive.TransactionalOperator;
 
 @Configuration
 @RequiredArgsConstructor
@@ -19,6 +20,7 @@ public class UseCasesConfig {
     private final BootcampRepository bootcampRepository;
     private final BootcampCapacidadRepository bootcampCapacidadRepository;
     private final BootcampEntityMapper bootcampEntityMapper;
+    private final TransactionalOperator transactionalOperator;
 
     @Bean
     public BootcampPersistencePort bootcampPersistencePort() {
@@ -31,6 +33,6 @@ public class UseCasesConfig {
             BootcampPersistencePort bootcampPersistencePort,
             CapacidadQueryPort capacidadQueryPort
     ) {
-        return new BootcampUseCase(bootcampPersistencePort, capacidadQueryPort);
+        return new BootcampUseCase(bootcampPersistencePort, capacidadQueryPort, transactionalOperator);
     }
 }

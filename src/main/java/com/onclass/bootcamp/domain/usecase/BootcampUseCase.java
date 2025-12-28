@@ -10,20 +10,29 @@ import com.onclass.bootcamp.domain.spi.CapacidadQueryPort;
 
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListado;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadListado;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class BootcampUseCase implements BootcampServicePort {
 
     private final BootcampPersistencePort persistencePort;
     private final CapacidadQueryPort capacidadQueryPort;
+    private final TransactionalOperator tx;
 
-    public BootcampUseCase(BootcampPersistencePort persistencePort, CapacidadQueryPort capacidadQueryPort) {
+    public BootcampUseCase(
+            BootcampPersistencePort persistencePort,
+            CapacidadQueryPort capacidadQueryPort,
+            TransactionalOperator tx
+    ) {
         this.persistencePort = persistencePort;
         this.capacidadQueryPort = capacidadQueryPort;
+        this.tx = tx;
     }
 
     @Override
@@ -45,6 +54,12 @@ public class BootcampUseCase implements BootcampServicePort {
                 });
     }
 
+    @Override
+    public Mono<Void> eliminar(Long id) {
+        return persistencePort.findById(id)
+                .switchIfEmpty(Mono.error(new BusinessException(TechnicalMessage.INTERNAL_ERROR)))
+                .flatMap(this::eliminarConOrfandad);
+    }
 
     private Mono<Bootcamp> validar(Bootcamp b) {
         if (b.capacidadIds() == null || b.capacidadIds().isEmpty())
@@ -116,5 +131,36 @@ public class BootcampUseCase implements BootcampServicePort {
                                             .toList()
                             ));
                 });
+    }
+
+    private Mono<Void> eliminarConOrfandad(Bootcamp bootcamp) {
+        return obtenerCapacidadesHuerfanas(bootcamp.capacidadIds())
+                .flatMap(capacidadesHuerfanas -> {
+                    Mono<Void> eliminarBootcamp =
+                            persistencePort.eliminarRelaciones(bootcamp.id())
+                                    .then(persistencePort.deleteById(bootcamp.id()))
+                                    .as(tx::transactional);
+
+                    if (capacidadesHuerfanas.isEmpty()) {
+                        return eliminarBootcamp;
+                    }
+
+                    return eliminarBootcamp
+                            .then(capacidadQueryPort.eliminarCapacidades(capacidadesHuerfanas));
+//                        persistencePort.eliminarRelaciones(bootcamp.id())
+//                                .then(persistencePort.deleteById(bootcamp.id()))
+//                                .as(tx::transactional)
+//                                .then(capacidadQueryPort.eliminarCapacidades(capacidadesHuerfanas))
+                });
+    }
+
+    private Mono<List<Long>> obtenerCapacidadesHuerfanas(List<Long> capacidadIds) {
+        return Flux.fromIterable(capacidadIds)
+                .flatMap(id ->
+                        persistencePort.countBootcampsReferencingCapacidad(id)
+                                .filter(count -> count <= 1)
+                                .map(count -> id)
+                )
+                .collectList();
     }
 }
