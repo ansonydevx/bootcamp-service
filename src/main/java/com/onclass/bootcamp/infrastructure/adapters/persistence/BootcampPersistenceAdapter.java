@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @Slf4j
 @RequiredArgsConstructor
 public class BootcampPersistenceAdapter implements BootcampPersistencePort {
@@ -62,6 +64,12 @@ public class BootcampPersistenceAdapter implements BootcampPersistencePort {
                                                 entity.getDuracion(),
                                                 capacidadIds
                                         )));
+    }
+
+    @Override
+    public Flux<Bootcamp> findAllByIdIn(List<Long> ids) {
+        return bootcampRepository.findAllByIdIn(ids)
+                .map(mapper::toModel);
     }
 
     @Override

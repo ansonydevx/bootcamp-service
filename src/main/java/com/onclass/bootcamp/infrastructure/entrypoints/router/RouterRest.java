@@ -39,6 +39,7 @@ public class RouterRest {
         return RouterFunctions.route()
                 .POST("/bootcamps", handler::registrar)
                 .GET("/bootcamps", handler::listar)
+                .POST("/bootcamps/by-ids", handler::obtenerPorIds)
                 .DELETE("/bootcamps/{id}", handler::eliminar)
                 .build();
     }

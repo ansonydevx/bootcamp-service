@@ -6,6 +6,8 @@ import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 public interface BootcampRepository extends ReactiveCrudRepository<BootcampEntity, Long> {
 
     Mono<BootcampEntity> findByNombre(String nombre);
@@ -16,4 +18,5 @@ public interface BootcampRepository extends ReactiveCrudRepository<BootcampEntit
             LIMIT :size OFFSET :offset
             """)
     Flux<BootcampEntity> findAllPaged(int size, long offset);
+    Flux<BootcampEntity> findAllByIdIn(List<Long> ids);
 }
