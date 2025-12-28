@@ -9,6 +9,7 @@ import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
 import com.onclass.bootcamp.domain.spi.CapacidadQueryPort;
 
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListado;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampResumen;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadListado;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.reactive.TransactionalOperator;
@@ -52,6 +53,21 @@ public class BootcampUseCase implements BootcampServicePort {
                     ordenar(bootcamps, sortBy, direction);
                     return mapearConCapacidades(bootcamps);
                 });
+    }
+
+    @Override
+    public Flux<BootcampResumen> obtenerPorIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Flux.empty();
+        }
+
+        return persistencePort.findAllByIdIn(ids)
+                .map(bootcamp ->
+                        new BootcampResumen(
+                                bootcamp.id(),
+                                bootcamp.fechaLanzamiento(),
+                                bootcamp.duracion()
+                        ));
     }
 
     @Override

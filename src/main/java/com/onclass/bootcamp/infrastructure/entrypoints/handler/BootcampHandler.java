@@ -4,6 +4,8 @@ import com.onclass.bootcamp.domain.api.BootcampServicePort;
 import com.onclass.bootcamp.domain.model.Bootcamp;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListado;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampRequest;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampResumen;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.IdsRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -47,6 +49,15 @@ public class BootcampHandler {
                         bootcampServicePort.listar(page, size, sortBy, direction),
                         BootcampListado.class
                 );
+    }
+
+    public Mono<ServerResponse> obtenerPorIds(ServerRequest request) {
+        return request.bodyToMono(IdsRequest.class)
+                .flatMap(req -> ServerResponse.ok()
+                        .body(
+                                bootcampServicePort.obtenerPorIds(req.ids()),
+                                BootcampResumen.class
+                        ));
     }
 
     public Mono<ServerResponse> eliminar(ServerRequest request) {
