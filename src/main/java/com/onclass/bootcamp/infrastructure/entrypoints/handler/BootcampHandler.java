@@ -5,12 +5,16 @@ import com.onclass.bootcamp.domain.model.Bootcamp;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListado;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
+import java.util.Map;
+
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class BootcampHandler {
@@ -42,6 +46,21 @@ public class BootcampHandler {
                 .body(
                         bootcampServicePort.listar(page, size, sortBy, direction),
                         BootcampListado.class
+                );
+    }
+
+    public Mono<ServerResponse> eliminar(ServerRequest request) {
+        Long id = Long.parseLong(request.pathVariable("id"));
+
+        return bootcampServicePort.eliminar(id)
+                .then(ServerResponse.noContent().build())
+                .doOnError(ex -> log.error("Error al eliminar bootcamp {}: {}", id, ex.getMessage(), ex))
+                .onErrorResume(ex ->
+                        ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .bodyValue(Map.of(
+                                        "error", ex.getMessage(),
+                                        "bootcampId", id
+                                ))
                 );
     }
 }

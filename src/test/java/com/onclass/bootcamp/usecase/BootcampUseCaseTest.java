@@ -10,6 +10,7 @@ import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadListado;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -26,14 +27,21 @@ class BootcampUseCaseTest {
     private BootcampPersistencePort persistencePort;
     private CapacidadQueryPort capacidadQueryPort;
     private BootcampUseCase useCase;
+    private TransactionalOperator tx;
 
     @BeforeEach
     void setup() {
         persistencePort = Mockito.mock(BootcampPersistencePort.class);
         capacidadQueryPort = Mockito.mock(CapacidadQueryPort.class);
+        tx = Mockito.mock(TransactionalOperator.class);
+
+        when(tx.transactional(Mockito.<Mono<?>>any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
         useCase = new BootcampUseCase(
                 persistencePort,
-                capacidadQueryPort);
+                capacidadQueryPort,
+                tx);
     }
 
     private Bootcamp generarBootcampConCapacidades(
@@ -184,5 +192,79 @@ class BootcampUseCaseTest {
                 .assertNext(b -> assertEquals(3, b.capacidades().size()))
                 .assertNext(b -> assertEquals(1, b.capacidades().size()))
                 .verifyComplete();
+    }
+
+    @Test
+    void deberiaEliminarBootcampYCapacidadesHuerfanas() {
+        Bootcamp bootcamp = generarBootcampConCapacidades(1L, "Alfa", 2);
+
+        when(persistencePort.findById(1L))
+                .thenReturn(Mono.just(bootcamp));
+
+        when(persistencePort.countBootcampsReferencingCapacidad(anyLong()))
+                .thenReturn(Mono.just(1L));
+
+        when(persistencePort.eliminarRelaciones(1L))
+                .thenReturn(Mono.empty());
+
+        when(persistencePort.deleteById(1L))
+                .thenReturn(Mono.empty());
+
+        when(capacidadQueryPort.eliminarCapacidades(any()))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(useCase.eliminar(1L))
+                .verifyComplete();
+
+        verify(capacidadQueryPort).eliminarCapacidades(bootcamp.capacidadIds());
+    }
+
+    @Test
+    void noDebeEliminarCapacidadSiEstaReferenciadaPorOtroBootcamp() {
+        Bootcamp bootcamp = generarBootcampConCapacidades(1L, "Bootcamp Java", 1);
+
+        when(persistencePort.findById(1L))
+                .thenReturn(Mono.just(bootcamp));
+
+        when(persistencePort.countBootcampsReferencingCapacidad(anyLong()))
+                .thenReturn(Mono.just(2L));
+
+        when(persistencePort.eliminarRelaciones(1L))
+                .thenReturn(Mono.empty());
+
+        when(persistencePort.deleteById(1L))
+                .thenReturn(Mono.empty());
+
+        when(capacidadQueryPort.eliminarCapacidades(any()))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(useCase.eliminar(1L))
+                .verifyComplete();
+
+        verify(capacidadQueryPort, never()).eliminarCapacidades(any());
+    }
+
+    @Test
+    void siCapacidadFallaNoDebeEliminarBootcamp() {
+        Bootcamp bootcamp = generarBootcampConCapacidades(1L, "Bootcamp Java", 1);
+
+        when(persistencePort.findById(1L))
+                .thenReturn(Mono.just(bootcamp));
+
+        when(persistencePort.countBootcampsReferencingCapacidad(anyLong()))
+                .thenReturn(Mono.just(1L));
+
+        when(persistencePort.eliminarRelaciones(1L))
+                .thenReturn(Mono.empty());
+
+        when(persistencePort.deleteById(1L))
+                .thenReturn(Mono.empty());
+
+        when(capacidadQueryPort.eliminarCapacidades(any()))
+                .thenReturn(Mono.error(new RuntimeException("Error MS Capacidad")));
+
+        StepVerifier.create(useCase.eliminar(1L))
+                .expectError(RuntimeException.class)
+                .verify();
     }
 }

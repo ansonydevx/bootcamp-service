@@ -9,4 +9,6 @@ public interface BootcampServicePort {
     
     Mono<Bootcamp> registrar(Bootcamp bootcamp);
     Flux<BootcampListado> listar(int page, int size, String sortBy, String direction);
+
+    Mono<Void> eliminar(Long id);
 }

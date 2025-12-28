@@ -6,9 +6,12 @@ import com.onclass.bootcamp.infrastructure.adapters.persistence.mapper.BootcampE
 import com.onclass.bootcamp.infrastructure.adapters.persistence.repository.BootcampCapacidadRepository;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.repository.BootcampRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @RequiredArgsConstructor
 public class BootcampPersistenceAdapter implements BootcampPersistencePort {
 
@@ -29,7 +32,7 @@ public class BootcampPersistenceAdapter implements BootcampPersistencePort {
                         Flux.fromIterable(bootcamp.capacidadIds())
                                 .flatMap(id ->
                                         bootcampCapacidadRepository.save(
-                                                new BootcampCapacidadEntity(saved.getId(), id)))
+                                                new BootcampCapacidadEntity(null, saved.getId(), id)))
                                 .then(Mono.just(
                                         new Bootcamp(
                                                 saved.getId(),
@@ -59,5 +62,40 @@ public class BootcampPersistenceAdapter implements BootcampPersistencePort {
                                                 entity.getDuracion(),
                                                 capacidadIds
                                         )));
+    }
+
+    @Override
+    public Mono<Bootcamp> findById(Long id) {
+        return bootcampRepository.findById(id)
+                .flatMap(entity ->
+                        bootcampCapacidadRepository
+                                .findByBootcampId(id)
+                                .map(BootcampCapacidadEntity::getCapacidadId)
+                                .collectList()
+                                .map(capacidadIds ->
+                                        new Bootcamp(
+                                                entity.getId(),
+                                                entity.getNombre(),
+                                                entity.getDescripcion(),
+                                                entity.getFechaLanzamiento(),
+                                                entity.getDuracion(),
+                                                capacidadIds
+                                        )));
+    }
+
+    @Override
+    @Transactional
+    public Mono<Void> eliminarRelaciones(Long bootcampId) {
+        return bootcampCapacidadRepository.deleteByBootcampId(bootcampId);
+    }
+
+    @Override
+    public Mono<Void> deleteById(Long id) {
+        return bootcampRepository.deleteById(id);
+    }
+
+    @Override
+    public Mono<Long> countBootcampsReferencingCapacidad(Long capacidadId) {
+        return bootcampCapacidadRepository.countByCapacidadId(capacidadId);
     }
 }
