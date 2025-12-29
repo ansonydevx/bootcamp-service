@@ -4,6 +4,8 @@ server:
 services:
   capacidades:
     base-url: http://localhost:8082
+  reportes:
+    base-url: http://localhost:8085
 
 spring:
   application:

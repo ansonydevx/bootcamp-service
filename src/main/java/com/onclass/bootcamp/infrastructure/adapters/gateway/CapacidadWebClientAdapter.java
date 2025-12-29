@@ -61,4 +61,13 @@ public class CapacidadWebClientAdapter implements CapacidadQueryPort {
                             );
                 });
     }
+
+    @Override
+    public Mono<Integer> contarTecnologiasPorCapacidades(List<Long> capacidadIds) {
+        return webClient.post()
+                .uri("/capacidades/contar-tecnologias")
+                .bodyValue(new IdsRequest(capacidadIds))
+                .retrieve()
+                .bodyToMono(Integer.class);
+    }
 }
