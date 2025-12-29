@@ -5,14 +5,9 @@ import com.onclass.bootcamp.domain.api.BootcampServicePort;
 import com.onclass.bootcamp.domain.enums.TechnicalMessage;
 import com.onclass.bootcamp.domain.exceptions.BusinessException;
 import com.onclass.bootcamp.domain.model.Bootcamp;
-import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
-import com.onclass.bootcamp.domain.spi.CapacidadQueryPort;
+import com.onclass.bootcamp.domain.spi.*;
 
-import com.onclass.bootcamp.domain.spi.ReporteCommandPort;
-import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListado;
-import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampResumen;
-import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadListado;
-import com.onclass.bootcamp.infrastructure.entrypoints.dto.ReporteBootcampRequest;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
@@ -27,17 +22,23 @@ public class BootcampUseCase implements BootcampServicePort {
     private final BootcampPersistencePort persistencePort;
     private final CapacidadQueryPort capacidadQueryPort;
     private final ReporteCommandPort reporteCommandPort;
+    private final ReporteQueryPort reporteQueryPort;
+    private final PersonaQueryPort personaQueryPort;
     private final TransactionalOperator tx;
 
     public BootcampUseCase(
             BootcampPersistencePort persistencePort,
             CapacidadQueryPort capacidadQueryPort,
             ReporteCommandPort reporteCommandPort,
+            ReporteQueryPort reporteQueryPort,
+            PersonaQueryPort personaQueryPort,
             TransactionalOperator tx
     ) {
         this.persistencePort = persistencePort;
         this.capacidadQueryPort = capacidadQueryPort;
         this.reporteCommandPort = reporteCommandPort;
+        this.reporteQueryPort = reporteQueryPort;
+        this.personaQueryPort = personaQueryPort;
         this.tx = tx;
     }
 
@@ -73,6 +74,13 @@ public class BootcampUseCase implements BootcampServicePort {
                                 bootcamp.fechaLanzamiento(),
                                 bootcamp.duracion()
                         ));
+    }
+
+    @Override
+    public Mono<BootcampDetalle> obtenerBootcampMasExitoso() {
+        return reporteQueryPort.obtenerBootcampMasExitosoId()
+                .flatMap(persistencePort::findById)
+                .flatMap(this::armarDetalleBootcamp);
     }
 
     @Override
@@ -201,5 +209,31 @@ public class BootcampUseCase implements BootcampServicePort {
                         log.warn("No se pudo registrar reporte del bootcamp {}", bootcamp.id(), e)
                 )
                 .subscribe();
+    }
+
+    private Mono<BootcampDetalle> armarDetalleBootcamp(Bootcamp bootcamp) {
+        Mono<List<CapacidadListado>> capacidadesMono =
+                capacidadQueryPort.obtenerCapacidadesPorIds(bootcamp.capacidadIds())
+                        .map(c -> new CapacidadListado(
+                                c.id(),
+                                c.nombre(),
+                                c.tecnologias()
+                        ))
+                        .collectList();
+
+        Mono<List<PersonaResumen>> personasMono =
+                personaQueryPort.obtenerPersonasPorBootcamp(bootcamp.id())
+                        .collectList();
+
+        return Mono.zip(capacidadesMono, personasMono)
+                .map(tuple -> new BootcampDetalle(
+                        bootcamp.id(),
+                        bootcamp.nombre(),
+                        bootcamp.descripcion(),
+                        bootcamp.fechaLanzamiento(),
+                        bootcamp.duracion(),
+                        tuple.getT1(),
+                        tuple.getT2()
+                ));
     }
 }

@@ -74,4 +74,12 @@ public class BootcampHandler {
                                 ))
                 );
     }
+
+    public Mono<ServerResponse> obtenerBootcampMasExitoso(ServerRequest request) {
+        return bootcampServicePort.obtenerBootcampMasExitoso()
+                .flatMap(detalle ->
+                        ServerResponse.ok().bodyValue(detalle)
+                )
+                .switchIfEmpty(ServerResponse.noContent().build());
+    }
 }

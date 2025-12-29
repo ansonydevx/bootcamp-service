@@ -1,9 +1,7 @@
 package com.onclass.bootcamp.application.config;
 
 import com.onclass.bootcamp.domain.api.BootcampServicePort;
-import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
-import com.onclass.bootcamp.domain.spi.CapacidadQueryPort;
-import com.onclass.bootcamp.domain.spi.ReporteCommandPort;
+import com.onclass.bootcamp.domain.spi.*;
 import com.onclass.bootcamp.domain.usecase.BootcampUseCase;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.BootcampPersistenceAdapter;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.mapper.BootcampEntityMapper;
@@ -33,12 +31,16 @@ public class UseCasesConfig {
     public BootcampServicePort bootcampServicePort(
             BootcampPersistencePort bootcampPersistencePort,
             CapacidadQueryPort capacidadQueryPort,
-            ReporteCommandPort reporteCommandPort
+            ReporteCommandPort reporteCommandPort,
+            ReporteQueryPort reporteQueryPort,
+            PersonaQueryPort personaQueryPort
     ) {
         return new BootcampUseCase(
                 bootcampPersistencePort,
                 capacidadQueryPort,
                 reporteCommandPort,
+                reporteQueryPort,
+                personaQueryPort,
                 transactionalOperator);
     }
 }
