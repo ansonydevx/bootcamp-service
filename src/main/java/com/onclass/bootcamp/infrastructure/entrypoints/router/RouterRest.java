@@ -41,6 +41,7 @@ public class RouterRest {
                 .GET("/bootcamps", handler::listar)
                 .POST("/bootcamps/by-ids", handler::obtenerPorIds)
                 .DELETE("/bootcamps/{id}", handler::eliminar)
+                .GET("/bootcamps/mas-exitoso", handler::obtenerBootcampMasExitoso)
                 .build();
     }
 }

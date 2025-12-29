@@ -1,13 +1,12 @@
-package com.onclass.bootcamp.usecase;
+package com.onclass.bootcamp.domain.usecase;
 
 import com.onclass.bootcamp.domain.enums.TechnicalMessage;
 import com.onclass.bootcamp.domain.exceptions.BusinessException;
 import com.onclass.bootcamp.domain.model.Bootcamp;
-import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
-import com.onclass.bootcamp.domain.spi.CapacidadQueryPort;
-import com.onclass.bootcamp.domain.spi.ReporteCommandPort;
+import com.onclass.bootcamp.domain.spi.*;
 import com.onclass.bootcamp.domain.usecase.BootcampUseCase;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadListado;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.PersonaResumen;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -28,6 +27,8 @@ class BootcampUseCaseTest {
     private BootcampPersistencePort persistencePort;
     private CapacidadQueryPort capacidadQueryPort;
     private ReporteCommandPort reporteCommandPort;
+    private ReporteQueryPort reporteQueryPort;
+    private PersonaQueryPort personaQueryPort;
     private BootcampUseCase useCase;
     private TransactionalOperator tx;
 
@@ -36,6 +37,8 @@ class BootcampUseCaseTest {
         persistencePort = Mockito.mock(BootcampPersistencePort.class);
         capacidadQueryPort = Mockito.mock(CapacidadQueryPort.class);
         reporteCommandPort = Mockito.mock(ReporteCommandPort.class);
+        reporteQueryPort = Mockito.mock(ReporteQueryPort.class);
+        personaQueryPort = Mockito.mock(PersonaQueryPort.class);
         tx = Mockito.mock(TransactionalOperator.class);
 
         when(tx.transactional(Mockito.<Mono<?>>any()))
@@ -45,6 +48,8 @@ class BootcampUseCaseTest {
                 persistencePort,
                 capacidadQueryPort,
                 reporteCommandPort,
+                reporteQueryPort,
+                personaQueryPort,
                 tx);
     }
 
@@ -328,4 +333,25 @@ class BootcampUseCaseTest {
                 .expectNextMatches(b -> b.id() != null)
                 .verifyComplete();
     }
+
+    @Test
+    void deberiaArmarDetalleDelBootcampMasExitoso() {
+        Long bootcampId = 1L;
+        Bootcamp bootcamp = new Bootcamp(bootcampId, "Boot A", "Desc", LocalDate.now(), 4, List.of(1L,2L));
+
+        when(reporteQueryPort.obtenerBootcampMasExitosoId()).thenReturn(Mono.just(bootcampId));
+        when(persistencePort.findById(bootcampId)).thenReturn(Mono.just(bootcamp));
+        when(capacidadQueryPort.obtenerCapacidadesPorIds(bootcamp.capacidadIds()))
+                .thenReturn(Flux.just(new CapacidadListado(1L,"Cap1", List.of()), new CapacidadListado(2L,"Cap2", List.of())));
+        when(personaQueryPort.obtenerPersonasPorBootcamp(bootcampId))
+                .thenReturn(Flux.just(new PersonaResumen(1L,"Alice","a@a.com")));
+
+        StepVerifier.create(useCase.obtenerBootcampMasExitoso())
+                .expectNextMatches(detalle ->
+                        detalle.capacidades().size() == 2 &&
+                                detalle.personas().size() == 1
+                )
+                .verifyComplete();
+    }
+
 }
