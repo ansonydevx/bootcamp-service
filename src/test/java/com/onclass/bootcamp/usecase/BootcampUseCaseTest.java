@@ -5,6 +5,7 @@ import com.onclass.bootcamp.domain.exceptions.BusinessException;
 import com.onclass.bootcamp.domain.model.Bootcamp;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
 import com.onclass.bootcamp.domain.spi.CapacidadQueryPort;
+import com.onclass.bootcamp.domain.spi.ReporteCommandPort;
 import com.onclass.bootcamp.domain.usecase.BootcampUseCase;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadListado;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +27,7 @@ class BootcampUseCaseTest {
 
     private BootcampPersistencePort persistencePort;
     private CapacidadQueryPort capacidadQueryPort;
+    private ReporteCommandPort reporteCommandPort;
     private BootcampUseCase useCase;
     private TransactionalOperator tx;
 
@@ -33,6 +35,7 @@ class BootcampUseCaseTest {
     void setup() {
         persistencePort = Mockito.mock(BootcampPersistencePort.class);
         capacidadQueryPort = Mockito.mock(CapacidadQueryPort.class);
+        reporteCommandPort = Mockito.mock(ReporteCommandPort.class);
         tx = Mockito.mock(TransactionalOperator.class);
 
         when(tx.transactional(Mockito.<Mono<?>>any()))
@@ -41,6 +44,7 @@ class BootcampUseCaseTest {
         useCase = new BootcampUseCase(
                 persistencePort,
                 capacidadQueryPort,
+                reporteCommandPort,
                 tx);
     }
 
@@ -107,6 +111,9 @@ class BootcampUseCaseTest {
         when(capacidadQueryPort.existenCapacidades(bootcamp.capacidadIds()))
                 .thenReturn(Mono.just(true));
 
+        when(capacidadQueryPort.contarTecnologiasPorCapacidades(any()))
+                .thenReturn(Mono.just(6));
+
         when(persistencePort.save(bootcamp))
                 .thenReturn(Mono.just(
                         new Bootcamp(
@@ -117,6 +124,9 @@ class BootcampUseCaseTest {
                                 bootcamp.duracion(),
                                 bootcamp.capacidadIds()
                         )));
+
+        when(reporteCommandPort.registrar(any()))
+                .thenReturn(Mono.empty());
 
         StepVerifier.create(useCase.registrar(bootcamp))
                 .expectNextMatches(b -> b.id() != null)
@@ -266,5 +276,56 @@ class BootcampUseCaseTest {
         StepVerifier.create(useCase.eliminar(1L))
                 .expectError(RuntimeException.class)
                 .verify();
+    }
+
+    @Test
+    void deberiaEnviarReporteAlRegistrarBootcamp() {
+        Bootcamp bootcamp = generarBootcampConCapacidades(1L, "Bootcamp Java", 2);
+
+        when(persistencePort.existsByNombre(any()))
+                .thenReturn(Mono.just(false));
+
+        when(capacidadQueryPort.existenCapacidades(any()))
+                .thenReturn(Mono.just(true));
+
+        when(capacidadQueryPort.contarTecnologiasPorCapacidades(any()))
+                .thenReturn(Mono.just(10));
+
+        when(persistencePort.save(any()))
+                .thenReturn(Mono.just(bootcamp));
+
+        when(reporteCommandPort.registrar(any()))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(useCase.registrar(bootcamp))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        verify(reporteCommandPort, times(1))
+                .registrar(any());
+    }
+
+    @Test
+    void siReporteFallaNoDeberiaFallarRegistroBootcamp() {
+        Bootcamp bootcamp = generarBootcampConCapacidades(1L, "Bootcamp Java", 2);
+
+        when(persistencePort.existsByNombre(any()))
+                .thenReturn(Mono.just(false));
+
+        when(capacidadQueryPort.existenCapacidades(any()))
+                .thenReturn(Mono.just(true));
+
+        when(capacidadQueryPort.contarTecnologiasPorCapacidades(any()))
+                .thenReturn(Mono.just(10));
+
+        when(persistencePort.save(any()))
+                .thenReturn(Mono.just(bootcamp));
+
+        when(reporteCommandPort.registrar(any()))
+                .thenReturn(Mono.error(new RuntimeException("Mongo caido")));
+
+        StepVerifier.create(useCase.registrar(bootcamp))
+                .expectNextMatches(b -> b.id() != null)
+                .verifyComplete();
     }
 }

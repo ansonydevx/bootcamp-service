@@ -8,9 +8,11 @@ import com.onclass.bootcamp.domain.model.Bootcamp;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
 import com.onclass.bootcamp.domain.spi.CapacidadQueryPort;
 
+import com.onclass.bootcamp.domain.spi.ReporteCommandPort;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListado;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampResumen;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadListado;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.ReporteBootcampRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
@@ -24,15 +26,18 @@ public class BootcampUseCase implements BootcampServicePort {
 
     private final BootcampPersistencePort persistencePort;
     private final CapacidadQueryPort capacidadQueryPort;
+    private final ReporteCommandPort reporteCommandPort;
     private final TransactionalOperator tx;
 
     public BootcampUseCase(
             BootcampPersistencePort persistencePort,
             CapacidadQueryPort capacidadQueryPort,
+            ReporteCommandPort reporteCommandPort,
             TransactionalOperator tx
     ) {
         this.persistencePort = persistencePort;
         this.capacidadQueryPort = capacidadQueryPort;
+        this.reporteCommandPort = reporteCommandPort;
         this.tx = tx;
     }
 
@@ -41,8 +46,8 @@ public class BootcampUseCase implements BootcampServicePort {
         return validar(bootcamp)
                 .flatMap(this::verificarDuplicidad)
                 .flatMap(this::verificarCapacidadesExisten)
-                .flatMap(persistencePort::save);
-
+                .flatMap(persistencePort::save)
+                .doOnSuccess(this::publicarReporteAsync);
     }
 
     @Override
@@ -163,10 +168,6 @@ public class BootcampUseCase implements BootcampServicePort {
 
                     return eliminarBootcamp
                             .then(capacidadQueryPort.eliminarCapacidades(capacidadesHuerfanas));
-//                        persistencePort.eliminarRelaciones(bootcamp.id())
-//                                .then(persistencePort.deleteById(bootcamp.id()))
-//                                .as(tx::transactional)
-//                                .then(capacidadQueryPort.eliminarCapacidades(capacidadesHuerfanas))
                 });
     }
 
@@ -178,5 +179,27 @@ public class BootcampUseCase implements BootcampServicePort {
                                 .map(count -> id)
                 )
                 .collectList();
+    }
+
+    private void publicarReporteAsync(Bootcamp bootcamp) {
+        capacidadQueryPort.contarTecnologiasPorCapacidades(bootcamp.capacidadIds())
+                .flatMap(totalTecnologias ->
+                        reporteCommandPort.registrar(
+                                new ReporteBootcampRequest(
+                                        bootcamp.id(),
+                                        bootcamp.nombre(),
+                                        bootcamp.descripcion(),
+                                        bootcamp.fechaLanzamiento(),
+                                        bootcamp.duracion(),
+                                        bootcamp.capacidadIds().size(),
+                                        totalTecnologias,
+                                        0
+                                )
+                        )
+                )
+                .doOnError(e ->
+                        log.warn("No se pudo registrar reporte del bootcamp {}", bootcamp.id(), e)
+                )
+                .subscribe();
     }
 }
