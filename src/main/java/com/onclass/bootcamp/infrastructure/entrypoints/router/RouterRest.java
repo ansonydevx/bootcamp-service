@@ -32,9 +32,20 @@ public class RouterRest {
                     method = RequestMethod.DELETE,
                     beanClass = BootcampHandler.class,
                     beanMethod = "eliminar"
+            ),
+            @RouterOperation(
+                    path = "/bootcamps/by-ids",
+                    method = RequestMethod.POST,
+                    beanClass = BootcampHandler.class,
+                    beanMethod = "obtenerPorIds"
+            ),
+            @RouterOperation(
+                    path = "/bootcamps/mas-exitoso",
+                    method = RequestMethod.GET,
+                    beanClass = BootcampHandler.class,
+                    beanMethod = "obtenerBootcampMasExitoso"
             )
     })
-
     public RouterFunction<ServerResponse> routerFunction(BootcampHandler handler) {
         return RouterFunctions.route()
                 .POST("/bootcamps", handler::registrar)
