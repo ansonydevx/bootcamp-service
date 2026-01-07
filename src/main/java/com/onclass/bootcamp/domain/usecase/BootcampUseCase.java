@@ -92,13 +92,13 @@ public class BootcampUseCase implements BootcampServicePort {
 
     private Mono<Bootcamp> validar(Bootcamp b) {
         if (b.capacidadIds() == null || b.capacidadIds().isEmpty())
-            return Mono.error(new BusinessException(TechnicalMessage.MINIMO_TECNOLOGIAS));
+            return Mono.error(new BusinessException(TechnicalMessage.MINIMO_CAPACIDADES));
 
         if (b.capacidadIds().size() > 4)
-            return Mono.error(new BusinessException(TechnicalMessage.MAXIMO_TECNOLOGIAS));
+            return Mono.error(new BusinessException(TechnicalMessage.MAXIMO_CAPACIDADES));
 
         if (new HashSet<>(b.capacidadIds()).size() != b.capacidadIds().size())
-            return Mono.error(new BusinessException(TechnicalMessage.TECNOLOGIAS_REPETIDAS));
+            return Mono.error(new BusinessException(TechnicalMessage.CAPACIDADES_REPETIDAS));
 
         return Mono.just(b);
     }
@@ -106,7 +106,7 @@ public class BootcampUseCase implements BootcampServicePort {
     private Mono<Bootcamp> verificarDuplicidad(Bootcamp b) {
         return persistencePort.existsByNombre(b.nombre())
                 .flatMap(exists -> Boolean.TRUE.equals(exists)
-                        ? Mono.error(new BusinessException(TechnicalMessage.CAPACIDAD_DUPLICADA))
+                        ? Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_DUPLICADO))
                         : Mono.just(b)
                 );
     }
@@ -115,7 +115,7 @@ public class BootcampUseCase implements BootcampServicePort {
         return capacidadQueryPort.existenCapacidades(b.capacidadIds())
                 .flatMap(existen -> Boolean.TRUE.equals(existen)
                         ? Mono.just(b)
-                        : Mono.error(new BusinessException(TechnicalMessage.TECNOLOGIAS_NO_EXISTEN))
+                        : Mono.error(new BusinessException(TechnicalMessage.CAPACIDADES_NO_EXISTEN))
                 );
     }
 

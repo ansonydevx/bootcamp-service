@@ -7,13 +7,11 @@ import lombok.RequiredArgsConstructor;
 @Getter
 public enum TechnicalMessage {
 
-    TECNOLOGIA_CREADA("201", "Tecnología registrada correctamente", ""),
-    CAPACIDAD_CREADA("201", "Capacidad registrada correctamente", ""),
-    CAPACIDAD_DUPLICADA("400", "La capacidad ya existe", "nombre"),
-    TECNOLOGIAS_NO_EXISTEN("400", "Tecnologias no existen",  "tecnologiaIds"),
-    MINIMO_TECNOLOGIAS("400", "Minimo debes seleccionar 3 tecnologias",  "tecnologiaIds"),
-    MAXIMO_TECNOLOGIAS("400", "Maximo debes seleccionar 20 tecnologias",  "tecnologiaIds"),
-    TECNOLOGIAS_REPETIDAS("400", "Maximo debes seleccionar 20 tecnologias",  "tecnologiaIds"),
+    BOOTCAMP_DUPLICADO("400", "El Bootcamp ya existe", "nombre"),
+    CAPACIDADES_NO_EXISTEN("400", "Capacidades no existen",  "capacidadIds"),
+    MINIMO_CAPACIDADES("400", "Minimo debes seleccionar 1 capacidad",  "capacidadIds"),
+    MAXIMO_CAPACIDADES("400", "Maximo debes seleccionar 4 capacidades",  "capacidadIds"),
+    CAPACIDADES_REPETIDAS("400", "Alguna(s) capacidades estan repetidas",  "capacidadIds"),
     NOMBRE_INVALIDO("400", "Nombre inválido", "nombre"),
     DESCRIPCION_INVALIDA("400", "Descripción inválida", "descripcion"),
     INTERNAL_ERROR("500", "Error interno", "");

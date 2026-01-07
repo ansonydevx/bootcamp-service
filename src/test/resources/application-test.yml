@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: bootcamp-service-test
+
+  r2dbc:
+    url: r2dbc:h2:mem:///bootcamp-testdb;DB_CLOSE_DELAY=-1;MODE=MySQL
+    username: sa
+    password:
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+  flyway:
+    enabled: false
+
+  security:
+    enabled: false

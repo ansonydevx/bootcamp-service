@@ -16,6 +16,10 @@ spring:
     url: r2dbc:mysql://localhost:3306/bootcamps_db
     username: root
     password: root
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
 
 springdoc:
   api-docs:

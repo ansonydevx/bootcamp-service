@@ -82,7 +82,7 @@ class BootcampUseCaseTest {
                 .expectErrorMatches(error ->
                         error instanceof BusinessException &&
                                 ((BusinessException) error)
-                                        .getTechnicalMessage() == TechnicalMessage.MINIMO_TECNOLOGIAS)
+                                        .getTechnicalMessage() == TechnicalMessage.MINIMO_CAPACIDADES)
                 .verify();
     }
 
@@ -98,7 +98,7 @@ class BootcampUseCaseTest {
                 .expectErrorMatches(error ->
                         error instanceof BusinessException &&
                                 ((BusinessException) error)
-                                        .getTechnicalMessage() == TechnicalMessage.MAXIMO_TECNOLOGIAS)
+                                        .getTechnicalMessage() == TechnicalMessage.MAXIMO_CAPACIDADES)
                 .verify();
     }
 
