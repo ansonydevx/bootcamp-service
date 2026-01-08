@@ -30,7 +30,6 @@ class BootcampUseCaseTest {
     private ReporteQueryPort reporteQueryPort;
     private PersonaQueryPort personaQueryPort;
     private BootcampUseCase useCase;
-    private TransactionalOperator tx;
 
     @BeforeEach
     void setup() {
@@ -39,18 +38,13 @@ class BootcampUseCaseTest {
         reporteCommandPort = Mockito.mock(ReporteCommandPort.class);
         reporteQueryPort = Mockito.mock(ReporteQueryPort.class);
         personaQueryPort = Mockito.mock(PersonaQueryPort.class);
-        tx = Mockito.mock(TransactionalOperator.class);
-
-        when(tx.transactional(Mockito.<Mono<?>>any()))
-                .thenAnswer(invocation -> invocation.getArgument(0));
 
         useCase = new BootcampUseCase(
                 persistencePort,
                 capacidadQueryPort,
                 reporteCommandPort,
                 reporteQueryPort,
-                personaQueryPort,
-                tx);
+                personaQueryPort);
     }
 
     private Bootcamp generarBootcampConCapacidades(

@@ -1,6 +1,5 @@
 package com.onclass.bootcamp.domain.usecase;
 
-import com.onclass.bootcamp.BootcampServiceApplication;
 import com.onclass.bootcamp.domain.api.BootcampServicePort;
 import com.onclass.bootcamp.domain.enums.TechnicalMessage;
 import com.onclass.bootcamp.domain.exceptions.BusinessException;
@@ -9,12 +8,10 @@ import com.onclass.bootcamp.domain.spi.*;
 
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.*;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class BootcampUseCase implements BootcampServicePort {
@@ -24,22 +21,19 @@ public class BootcampUseCase implements BootcampServicePort {
     private final ReporteCommandPort reporteCommandPort;
     private final ReporteQueryPort reporteQueryPort;
     private final PersonaQueryPort personaQueryPort;
-    private final TransactionalOperator tx;
 
     public BootcampUseCase(
             BootcampPersistencePort persistencePort,
             CapacidadQueryPort capacidadQueryPort,
             ReporteCommandPort reporteCommandPort,
             ReporteQueryPort reporteQueryPort,
-            PersonaQueryPort personaQueryPort,
-            TransactionalOperator tx
+            PersonaQueryPort personaQueryPort
     ) {
         this.persistencePort = persistencePort;
         this.capacidadQueryPort = capacidadQueryPort;
         this.reporteCommandPort = reporteCommandPort;
         this.reporteQueryPort = reporteQueryPort;
         this.personaQueryPort = personaQueryPort;
-        this.tx = tx;
     }
 
     @Override
@@ -57,7 +51,7 @@ public class BootcampUseCase implements BootcampServicePort {
                 .collectList()
                 .flatMapMany(bootcamps -> {
                     ordenar(bootcamps, sortBy, direction);
-                    return mapearConCapacidades(bootcamps);
+                    return listarConCapacidades(bootcamps);
                 });
     }
 
@@ -86,7 +80,9 @@ public class BootcampUseCase implements BootcampServicePort {
     @Override
     public Mono<Void> eliminar(Long id) {
         return persistencePort.findById(id)
-                .switchIfEmpty(Mono.error(new BusinessException(TechnicalMessage.INTERNAL_ERROR)))
+                .switchIfEmpty(
+                        Mono.error(
+                                new BusinessException(TechnicalMessage.INTERNAL_ERROR)))
                 .flatMap(this::eliminarConOrfandad);
     }
 
@@ -138,28 +134,25 @@ public class BootcampUseCase implements BootcampServicePort {
         bootcamps.sort(comparator);
     }
 
-    private Flux<BootcampListado> mapearConCapacidades(List<Bootcamp> bootcamps) {
+    private Flux<BootcampListado> listarConCapacidades(List<Bootcamp> bootcamps) {
         List<Long> capacidadIds = bootcamps.stream()
                 .flatMap(b -> b.capacidadIds().stream())
                 .distinct()
                 .toList();
 
         return capacidadQueryPort.obtenerCapacidadesPorIds(capacidadIds)
-                .collectList()
-                .flatMapMany(capacidadesList -> {
-                    Map<Long, CapacidadListado> capacidadMap = capacidadesList.stream()
-                            .collect(Collectors.toMap(CapacidadListado::id, c -> c));
-
-                    return Flux.fromIterable(bootcamps)
-                            .map(bootcamp -> new BootcampListado(
-                                    bootcamp.id(),
-                                    bootcamp.nombre(),
-                                    bootcamp.capacidadIds().stream()
-                                            .map(capacidadMap::get)
-                                            .filter(Objects::nonNull)
-                                            .toList()
-                            ));
-                });
+                .collectMap(CapacidadListado::id)
+                .flatMapMany(capacidadMap ->
+                        Flux.fromIterable(bootcamps)
+                                .map(bootcamp -> new BootcampListado(
+                                        bootcamp.id(),
+                                        bootcamp.nombre(),
+                                        bootcamp.capacidadIds().stream()
+                                                .map(capacidadMap::get)
+                                                .filter(Objects::nonNull)
+                                                .toList()
+                                ))
+                );
     }
 
     private Mono<Void> eliminarConOrfandad(Bootcamp bootcamp) {
@@ -167,15 +160,12 @@ public class BootcampUseCase implements BootcampServicePort {
                 .flatMap(capacidadesHuerfanas -> {
                     Mono<Void> eliminarBootcamp =
                             persistencePort.eliminarRelaciones(bootcamp.id())
-                                    .then(persistencePort.deleteById(bootcamp.id()))
-                                    .as(tx::transactional);
+                                    .then(persistencePort.deleteById(bootcamp.id()));
 
-                    if (capacidadesHuerfanas.isEmpty()) {
-                        return eliminarBootcamp;
-                    }
-
-                    return eliminarBootcamp
-                            .then(capacidadQueryPort.eliminarCapacidades(capacidadesHuerfanas));
+                    return capacidadesHuerfanas.isEmpty()
+                            ? eliminarBootcamp
+                            : eliminarBootcamp
+                                .then(capacidadQueryPort.eliminarCapacidades(capacidadesHuerfanas));
                 });
     }
 
